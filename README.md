@@ -8,6 +8,15 @@
 
 ---
 
+## 🌐 Live Demo
+
+- **Live Application:** [https://secure-dms-three.vercel.app](https://secure-dms-three.vercel.app)
+- **Frontend:** Vercel
+- **Backend:** Render
+- **Repository:** [https://github.com/umangshekdar/SecureDMS-](https://github.com/umangshekdar/SecureDMS-)
+
+---
+
 ## 🔒 Overview
 
 SecureDMS is an intelligent document lifecycle platform designed for sensitive legal, investigation, forensic, and administrative records. It provides a complete document intelligence and integrity layer that can integrate with existing government systems through secure APIs.
