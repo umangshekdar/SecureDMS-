@@ -23,7 +23,8 @@ const api = axios.create({
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem('token');
-    if (token && config.headers) {
+    // Attach real JWT token to requests; never transmit mock/demo tokens to real backend endpoints
+    if (token && !token.startsWith('mock-jwt-token-') && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
@@ -36,11 +37,15 @@ api.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
     if (error.response && error.response.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      // If not already on login page, redirect
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
+      const token = localStorage.getItem('token');
+      // Only wipe session and redirect to login if the session was using a real backend token
+      if (token && !token.startsWith('mock-jwt-token-')) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        // If not already on login page, redirect
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
       }
     }
     return Promise.reject(error);
@@ -58,7 +63,7 @@ export const authService = {
     return response.data;
   },
   getMe: async () => {
-    const response = await api.get<ApiResponse<User>>('/auth/me');
+    const response = await api.get<ApiResponse<User | { user: User }>>('/auth/me');
     return response.data;
   },
 };

@@ -68,7 +68,8 @@ export const Login: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard';
+  const rawFrom = (location.state as { from?: { pathname: string } })?.from?.pathname;
+  const from = rawFrom && rawFrom !== '/login' ? rawFrom : '/dashboard';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,15 +82,29 @@ export const Login: React.FC = () => {
     try {
       const res = await authService.login({ email, password });
       if (res.success && res.data) {
-        login(res.data.token, res.data.user);
-        toast.success(`Welcome back, ${res.data.user.name}`);
+        const userPayload = (res.data as any).user || res.data;
+        login(res.data.token, userPayload);
+        toast.success(`Welcome back, ${userPayload.name || 'Officer'}`);
         navigate(from, { replace: true });
+        return;
       } else {
         toast.error(res.message || 'Login failed. Please check your credentials.');
+        return;
       }
     } catch (err: unknown) {
-      // Mock fallback if backend is not yet running
-      console.warn('Backend not accessible, testing mock fallback credentials:', err);
+      const axiosErr = err as { response?: { data?: { message?: string }; status?: number } };
+
+      // If the real backend is reachable and responded (e.g. 401, 400, 403), show the genuine error.
+      // Do not silently treat a failed real backend login as a successful login.
+      if (axiosErr.response) {
+        const message =
+          axiosErr.response.data?.message || 'Invalid email or password. Please verify your credentials.';
+        toast.error(message);
+        return;
+      }
+
+      // Only if the backend is completely unreachable (offline/network failure), test registered offline demo accounts
+      console.warn('Backend not accessible, testing offline demo credentials:', err);
 
       const foundDemo = DEMO_ACCOUNTS.find((acc) => acc.email.toLowerCase() === email.toLowerCase());
       const isAcceptedPassword =

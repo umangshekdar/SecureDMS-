@@ -28,6 +28,25 @@ function isValidDemoUser(u: unknown): u is User {
   return registered !== undefined && registered.role === candidate.role;
 }
 
+/**
+ * Normalizes user payload to guarantee both _id and id exist and extracts nested { user: ... } if present.
+ */
+function normalizeUser(raw: unknown): User | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const rawObj = raw as Record<string, unknown>;
+  const data = rawObj.user && typeof rawObj.user === 'object'
+    ? (rawObj.user as Record<string, unknown>)
+    : rawObj;
+
+  const candidateId = String(data._id || data.id || '');
+  if (!data.email || !data.role) return null;
+
+  return {
+    ...(data as unknown as User),
+    _id: candidateId,
+  };
+}
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [token, setToken] = useState<string | null>(() => {
     return localStorage.getItem('token');
@@ -40,17 +59,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (savedUser && savedToken) {
       try {
         const parsed = JSON.parse(savedUser);
+        const normalized = normalizeUser(parsed);
         // If this is a demo token, strictly validate against registered demo accounts
         if (savedToken.startsWith('mock-jwt-token-')) {
-          if (isValidDemoUser(parsed)) {
-            return parsed;
+          if (isValidDemoUser(normalized)) {
+            return normalized;
           }
           // Reject invalid or forged demo accounts
           localStorage.removeItem('token');
           localStorage.removeItem('user');
           return null;
         }
-        return parsed;
+        return normalized;
       } catch {
         return null;
       }
@@ -71,9 +91,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (storedToken.startsWith('mock-jwt-token-')) {
           try {
             const parsed = storedUser ? JSON.parse(storedUser) : null;
-            if (isValidDemoUser(parsed)) {
+            const normalized = normalizeUser(parsed);
+            if (isValidDemoUser(normalized)) {
               // Valid demo account — retain session without hitting live auth endpoint
-              setUser(parsed);
+              setUser(normalized);
               setLoading(false);
               return;
             }
@@ -93,8 +114,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         try {
           const res = await authService.getMe();
           if (res.success && res.data) {
-            setUser(res.data);
-            localStorage.setItem('user', JSON.stringify(res.data));
+            const normalized = normalizeUser(res.data);
+            if (normalized && normalized.role) {
+              setUser(normalized);
+              localStorage.setItem('user', JSON.stringify(normalized));
+            } else {
+              throw new Error('Authentication profile missing role definition');
+            }
           } else {
             throw new Error('Authentication response invalid');
           }
@@ -113,11 +139,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     initAuth();
   }, []);
 
-  const login = useCallback((newToken: string, newUser: User) => {
+  const login = useCallback((newToken: string, newUser: unknown) => {
+    const normalized = normalizeUser(newUser) || (newUser as User);
     localStorage.setItem('token', newToken);
-    localStorage.setItem('user', JSON.stringify(newUser));
+    localStorage.setItem('user', JSON.stringify(normalized));
     setToken(newToken);
-    setUser(newUser);
+    setUser(normalized);
   }, []);
 
   const logout = useCallback(() => {

@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { LoadingSpinner } from './components/common/LoadingSpinner';
 
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
@@ -27,7 +28,15 @@ export const App: React.FC = () => {
       <Route
         path="/login"
         element={
-          isAuthenticated && !loading ? <Navigate to="/dashboard" replace /> : <Login />
+          loading ? (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50">
+              <LoadingSpinner size="lg" text="Authenticating Security Session..." />
+            </div>
+          ) : isAuthenticated ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <Login />
+          )
         }
       />
 
@@ -35,7 +44,11 @@ export const App: React.FC = () => {
       <Route
         path="/"
         element={
-          isAuthenticated ? (
+          loading ? (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50">
+              <LoadingSpinner size="lg" text="Authenticating Security Session..." />
+            </div>
+          ) : isAuthenticated ? (
             <Navigate to="/dashboard" replace />
           ) : (
             <Navigate to="/login" replace />

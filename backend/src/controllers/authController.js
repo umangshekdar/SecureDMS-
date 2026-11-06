@@ -74,6 +74,7 @@ export const login = async (req, res, next) => {
     return successResponse(res, 'Authentication successful', {
       token,
       user: {
+        _id: user._id,
         id: user._id,
         name: user.name,
         email: user.email,
@@ -134,6 +135,7 @@ export const register = async (req, res, next) => {
       {
         token,
         user: {
+          _id: user._id,
           id: user._id,
           name: user.name,
           email: user.email,
@@ -157,7 +159,18 @@ export const register = async (req, res, next) => {
 export const getMe = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id).select('-passwordHash');
-    return successResponse(res, 'Current user profile retrieved', { user });
+    if (!user) {
+      return errorResponse(res, 'User profile not found', 404);
+    }
+    const userObj = user.toObject ? user.toObject() : { ...user };
+    userObj._id = user._id;
+    userObj.id = user._id;
+
+    // Return in standardized format supporting both flat user object and nested { user } shape
+    return successResponse(res, 'Current user profile retrieved', {
+      ...userObj,
+      user: userObj,
+    });
   } catch (error) {
     next(error);
   }
